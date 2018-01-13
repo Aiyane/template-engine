@@ -188,12 +188,23 @@ class Templite(object):
         vars_set.add(name)
 
     def render(self, context=None):
+        """
+        渲染函数
+        """
         render_context = dict(self.context)
         if context:
             render_context.update(context)
         return self._render_function(render_context, self._do_dots)
 
     def _do_dots(self, value, *dots):
+        """
+        处理点操作符
+        参数:
+            :value: 是点操作符的左值
+            :dots: 点操作符的后一个变量, 如果最初的value中有这个属性, 则返回这个属性
+                如果这个是一个字典中的key, 就返回这个字典的键值, 如果这是一个可以回调
+                的函数, 则返回这个函数的调用结果
+        """
         for dot in dots:
             try:
                 value = getattr(value, dot)
