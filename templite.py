@@ -59,6 +59,7 @@ class CodeBuilder(object):
         assert self._indent == 0
         python_source = str(self)
         global_namespace = {}
+        # 这个exec函数会执行复杂的Python代码, 但是没有返回值, 默认返回None
         exce(python_source, global_namespace)
         return global_namespace
 
