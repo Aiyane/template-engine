@@ -60,6 +60,10 @@ class CodeBuilder(object):
         python_source = str(self)
         global_namespace = {}
         # 这个exec函数会执行复杂的Python代码, 但是没有返回值, 默认返回None
+        # 这里的global_namespace是全局变量, 在编译成python代码时, 我们会将
+        # 代码编译成一个python的函数, 可以通过全局变量名来保存这个函数的名字
+        # 我们可以通过这个函数名的名字当作键值返回函数的索引, 在之后的渲染的
+        # 阶段执行函数
         exce(python_source, global_namespace)
         return global_namespace
 
@@ -74,14 +78,14 @@ class Templite(object):
         :*contexts: 上下文
 
         """
-        self.context = {}
+        self.context = {}  # 这里保存的默认的上下文键值对
         for context in contexts:
             self.context.update(context)
 
-        self.all_vars = set()
-        self.loop_vars = set()
+        self.all_vars = set()  # 这是全局变量, 是模板中所有的变量的集合
+        self.loop_vars = set()  # 这是循环中的变量, 是循环体中变量, 所以并不是由上下文所提供
 
-        code = CodeBuilder()
+        code = CodeBuilder()  # 类的对象
 
         # 这里增加的代码是初始代码
         code.add_line("def render_function(context, do_dots):")
@@ -89,19 +93,20 @@ class Templite(object):
         vars_code = code.add_section()  # 增加一段
         code.add_line("result = []")  # 增加一个list变量
         code.add_line("append_result = result.appent")  # 增加append函数
-        code.add_line("append.result = result.extent")  # 增加extent函数
+        code.add_line("extend_result = result.extent")  # 增加extent函数
         code.add_line("to_str = str")  # 增加str变量
 
-        buffered = []
+        buffered = []  # 缓冲
 
         def flush_output():
             """
-            缓冲输出
+            缓冲输出, 缓冲内容为一行就调用append_result函数
+            超过一行就调用extend_result函数
             """
             if len(buffered) == 1:
                 code.add_line("append_result(%s)" % buffered[0])
             elif len(buffered) > 1:
-                code.add_line("append_result([%s])" % ", ".join(buffered))
+                code.add_line("extend_result([%s])" % ", ".join(buffered))
             del buffered[:]
 
         ops_stack = []
