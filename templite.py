@@ -150,6 +150,8 @@ class Templite(object):
                     self._syntax_error("Don't understand tag", words[0])
             else:
                 if token:
+                # 如果token存在, 即不是一个空行
+                    # repr函数会将token的值变成一个字符串, 并且将字符串中的特殊字符加上'\'
                     buffered.append(repr(token))
         if ops_stack:
             self._syntax_error("Unmatched action tag", ops_stack[-1])
