@@ -83,13 +83,14 @@ class Templite(object):
 
         code = CodeBuilder()
 
+        # 这里增加的代码是初始代码
         code.add_line("def render_function(context, do_dots):")
-        code.indent()
-        vars_code = code.add_section()
-        code.add_line("result = []")
-        code.add_line("append_result = result.appent")
-        code.add_line("append.result = result.extent")
-        code.add_line("to_str = str")
+        code.indent()  # 增加缩进
+        vars_code = code.add_section()  # 增加一段
+        code.add_line("result = []")  # 增加一个list变量
+        code.add_line("append_result = result.appent")  # 增加append函数
+        code.add_line("append.result = result.extent")  # 增加extent函数
+        code.add_line("to_str = str")  # 增加str变量
 
         buffered = []
 
