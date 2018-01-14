@@ -90,7 +90,7 @@ class Templite(object):
         # 这里增加的代码是初始代码
         code.add_line("def render_function(context, do_dots):")
         code.indent()  # 增加缩进
-        vars_code = code.add_section()  # 增加一段
+        ars_code = code.add_section()  # 增加一段
         code.add_line("result = []")  # 增加一个list变量
         code.add_line("append_result = result.appent")  # 增加append函数
         code.add_line("extend_result = result.extent")  # 增加extent函数
@@ -158,6 +158,7 @@ class Templite(object):
 
         flush_output()
 
+        # 选出上下文的变量
         for var_name in self.all_vars - self.loop_vars:
             vars_code.add_line("c_%s = context[%r]" % (var_name, var_name))
 
