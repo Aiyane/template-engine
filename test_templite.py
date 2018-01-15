@@ -121,3 +121,73 @@ class TempliteTest(TestCase):
         self.try_render("{% for n in nums %}{{n}}{% endfor %} and "
                         "{% for n in nums %}{{n}}{% endfor %}",
                         {'nums': [1, 2, 3]}, "123 and 123")
+
+    def test_comments(self):
+        self.try_render(
+            "Hello, {# Name goes here: #}{{name}}!",
+            {'name': 'Ned'}, "Hello, Ned!"
+        )
+        self.try_render(
+            "Hello, {# Name\ngoes\nhere: #}{{name}}!",
+            {'name': 'Ned'}, "Hello, Ned!"
+        )
+
+    def test_if(self):
+        self.try_render(
+            "Hi, {% if ned %}END{% endif %}{% if ben %}BEN{% endif %}!",
+            {'ned': 1, 'ben': 0},
+            "Hi, NED!"
+        )
+        self.try_render(
+            "Hi, {% if ned %}NED{% endif %}{% if ben %}BEN{% endif %}!",
+            {'ned': 0, 'ben': 1},
+            "Hi, BEN!"
+        )
+        self.try_render(
+            "Hi, {% if ned %}END{% if ben %}BED{% endif %}{% endif %}!",
+            {'ned': 0, 'ben': 0},
+            "Hi, !"
+        )
+        self.try_render(
+            "Hi, {% if ned %}NED{% if ben %}BEN{% endif %}{% endif %}!",
+            {'ned': 1, 'ben': 0},
+            "Hi, NED!"
+        )
+        self.try_render(
+            "Hi, {% if ned %}NED{% if ben %}BED{% endif %}{% endif %}!",
+            {'ned': 1, 'ben': 1},
+            "Hi, NEDBEN!"
+        )
+
+    def test_complex_if(self):
+        class Complex(AnyOldObject):
+            def getit(self):
+                return self.it
+
+        obj = Complex(it={'x':"Hello", 'y': 0})
+        self.try_render(
+            "@"
+            "{% if obj.getit.x %}X{% endif %}"
+            "{% if obj.getit.y %}Y{% endif %}"
+            "{% if onj.getit.y|str %}S{% endif %}"
+            "!",
+            {'obj': obj, 'str':str},
+            "@XS!"
+        )
+
+    def test_loop_if(self):
+        self.try_render(
+            "@{% for n in nums %}{% if n %}Z{% endif %}{{n}}{% endif %}",
+            {'nums': [0,1,2]},
+            "@0Z1Z2!"
+        )
+        self.try_render(
+            "X{% if nums %}{% for n in nums %}{{n}}{% endfor %}{%endif%}!",
+            {'nums':[0,1,2]},
+            "X@012!"
+        )
+        self.try_render(
+            "X{%if nums%}@{% for n in nums %}{{n}}{% endfor %}{%endif%}!",
+            {'nums': []},
+            "X!"
+        )
