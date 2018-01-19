@@ -64,7 +64,7 @@ class CodeBuilder(object):
         # 代码编译成一个python的函数, 可以通过全局变量名来保存这个函数的名字
         # 我们可以通过这个函数名的名字当作键值返回函数的索引, 在之后的渲染的
         # 阶段执行函数
-        exce(python_source, global_namespace)
+        exec(python_source, global_namespace)
         return global_namespace
 
 
@@ -90,10 +90,10 @@ class Templite(object):
         # 这里增加的代码是初始代码
         code.add_line("def render_function(context, do_dots):")
         code.indent()  # 增加缩进
-        ars_code = code.add_section()  # 增加一段
+        vars_code = code.add_section()  # 增加一段
         code.add_line("result = []")  # 增加一个list变量
-        code.add_line("append_result = result.appent")  # 增加append函数
-        code.add_line("extend_result = result.extent")  # 增加extent函数
+        code.add_line("append_result = result.append")  # 增加append函数
+        code.add_line("extend_result = result.extend")  # 增加extent函数
         code.add_line("to_str = str")  # 增加str变量
 
         buffered = []  # 缓冲
@@ -111,32 +111,42 @@ class Templite(object):
 
         ops_stack = []
 
-        tokens = re.split(r"(?s)({{.*?}})|{%.*?%}|{#.*?#}", text)
+        tokens = re.split(r"(?s)({{.*?}}|{%.*?%}|{#.*?#})", text)
 
         for token in tokens:
             if token.startswith('{#'):
+                # Comment: ignore it and move on.
                 continue
             elif token.startswith('{{'):
+                # An expression to evaluate.
                 expr = self._expr_code(token[2:-2].strip())
                 buffered.append("to_str(%s)" % expr)
             elif token.startswith('{%'):
+                # Action tag: split into words and parse further.
                 flush_output()
                 words = token[2:-2].strip().split()
                 if words[0] == 'if':
+                    # An if statement: evaluate the expression to determine if.
                     if len(words) != 2:
                         self._syntax_error("Don't understand if", token)
                     ops_stack.append('if')
                     code.add_line("if %s:" % self._expr_code(words[1]))
                     code.indent()
                 elif words[0] == 'for':
+                    # A loop: iterate over expression result.
                     if len(words) != 4 or words[2] != 'in':
                         self._syntax_error("Don't understand for", token)
                     ops_stack.append('for')
                     self._variable(words[1], self.loop_vars)
-                    code.add_line("for c_%s in %s:" %
-                                  (words[1], self._expr_code(words[3])))
+                    code.add_line(
+                        "for c_%s in %s:" % (
+                            words[1],
+                            self._expr_code(words[3])
+                        )
+                    )
                     code.indent()
                 elif words[0].startswith('end'):
+                    # Endsomething.  Pop the ops stack.
                     if len(words) != 1:
                         self._syntax_error("Don't understand end", token)
                     end_what = words[0][3:]
@@ -149,9 +159,8 @@ class Templite(object):
                 else:
                     self._syntax_error("Don't understand tag", words[0])
             else:
+                # Literal content.  If it isn't empty, output it.
                 if token:
-                # 如果token存在, 即不是一个空行
-                    # repr函数会将token的值变成一个字符串, 并且将字符串中的特殊字符加上'\'
                     buffered.append(repr(token))
         if ops_stack:
             self._syntax_error("Unmatched action tag", ops_stack[-1])
@@ -171,7 +180,7 @@ class Templite(object):
         生成python表达式
         """
         if "|" in expr:
-            pipes = expr.split
+            pipes = expr.split("|")
             code = self._expr_code(pipes[0])
             for func in pipes[1:]:
                 self._variable(func, self.all_vars)
@@ -194,7 +203,7 @@ class Templite(object):
 
     def _variable(self, name, vars_set):
         if not re.match(r"[_a-zA-Z][_a-zA-Z0-9]*$", name):
-            self._syntax_error("Not a vaild name", name)
+            self._syntax_error("Not a valid name", name)
         vars_set.add(name)
 
     def render(self, context=None):
