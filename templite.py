@@ -115,25 +115,25 @@ class Templite(object):
 
         for token in tokens:
             if token.startswith('{#'):
-                # Comment: ignore it and move on.
+                # 注释: 忽略注释符中的内容
                 continue
             elif token.startswith('{{'):
-                # An expression to evaluate.
+                # 替换上下文的变量
                 expr = self._expr_code(token[2:-2].strip())
                 buffered.append("to_str(%s)" % expr)
             elif token.startswith('{%'):
-                # Action tag: split into words and parse further.
+                # 这里是简单的逻辑部分
                 flush_output()
                 words = token[2:-2].strip().split()
                 if words[0] == 'if':
-                    # An if statement: evaluate the expression to determine if.
+                    # if表达式 用来处理条件语句, 但是这个表达式需要以 endif结尾, 并且只支持简单逻辑, 不支持复杂 逻辑.
                     if len(words) != 2:
                         self._syntax_error("Don't understand if", token)
                     ops_stack.append('if')
                     code.add_line("if %s:" % self._expr_code(words[1]))
                     code.indent()
                 elif words[0] == 'for':
-                    # A loop: iterate over expression result.
+                    # for循环, 以endfor结尾
                     if len(words) != 4 or words[2] != 'in':
                         self._syntax_error("Don't understand for", token)
                     ops_stack.append('for')
@@ -146,7 +146,7 @@ class Templite(object):
                     )
                     code.indent()
                 elif words[0].startswith('end'):
-                    # Endsomething.  Pop the ops stack.
+                    # 结束符, 用来结束逻辑语句
                     if len(words) != 1:
                         self._syntax_error("Don't understand end", token)
                     end_what = words[0][3:]
@@ -159,7 +159,7 @@ class Templite(object):
                 else:
                     self._syntax_error("Don't understand tag", words[0])
             else:
-                # Literal content.  If it isn't empty, output it.
+                # 否则存入缓冲区
                 if token:
                     buffered.append(repr(token))
         if ops_stack:
