@@ -127,10 +127,17 @@ class Templite(object):
                 words = token[2:-2].strip().split()
                 if words[0] == 'if':
                     # if表达式 用来处理条件语句, 但是这个表达式需要以 endif结尾, 并且只支持简单逻辑, 不支持复杂 逻辑.
-                    if len(words) != 2:
-                        self._syntax_error("Don't understand if", token)
                     ops_stack.append('if')
-                    code.add_line("if %s:" % self._expr_code(words[1]))
+
+                    # 扩展if语句
+                    _content = []
+                    for word in words[1:]:
+                        if re.match(r"[_a-zA-Z][_a-zA-Z0-9]*(\.[_a-zA-Z][_a-zA-Z0-9]*)*$", word):
+                            _content.append(self._expr_code(word))
+                            continue
+                        _content.append(word)
+
+                    code.add_line("if %s:" % ' '.join(_content))
                     code.indent()
                 elif words[0] == 'for':
                     # for循环, 以endfor结尾
