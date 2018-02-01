@@ -38,7 +38,7 @@ class CodeBuilder(object):
         self.code.append(section)
         return section
 
-    INDENT_STEP = 4  #  pep8标准
+    INDENT_STEP = 4  # pep8标准
 
     def indent(self):
         """
@@ -132,7 +132,9 @@ class Templite(object):
                     # 扩展if语句
                     _content = []
                     for word in words[1:]:
-                        if re.match(r"[_a-zA-Z][_a-zA-Z0-9]*(\.[_a-zA-Z][_a-zA-Z0-9]*)*$", word):
+                        if re.match(
+                                r"[_a-zA-Z][_a-zA-Z0-9]*(\.[_a-zA-Z][_a-zA-Z0-9]*)*$",
+                                word):
                             _content.append(self._expr_code(word))
                             continue
                         _content.append(word)
@@ -145,12 +147,8 @@ class Templite(object):
                         self._syntax_error("Don't understand for", token)
                     ops_stack.append('for')
                     self._variable(words[1], self.loop_vars)
-                    code.add_line(
-                        "for c_%s in %s:" % (
-                            words[1],
-                            self._expr_code(words[3])
-                        )
-                    )
+                    code.add_line("for c_%s in %s:" %
+                                  (words[1], self._expr_code(words[3])))
                     code.indent()
                 elif words[0].startswith('end'):
                     # 结束符, 用来结束逻辑语句
