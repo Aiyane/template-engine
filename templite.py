@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-__author__ = 'Aiyane'
+"""
+模板引擎
+"""
 
 import re
+import os
 
 
 class TempliteSyntaxError(ValueError):
@@ -113,6 +116,82 @@ class Templite(object):
 
         tokens = re.split(r"(?s)({{.*?}}|{%.*?%}|{#.*?#})", text)
 
+        if tokens[1].startswith("{%"):  # 从这里开始就是为了处理模板的继承
+            words = tokens[1][2:-2].strip().split()
+            if words[0] == "extends":
+                # base_block: 存的是block的名字为key, 起始位置与末位置为value
+                # base_name: 是临时的block的名字
+                # merge_page: 是生成的目标html
+                base_block = {}
+                base_name = ''
+                merge_page = []
+                try:  # 初始化基础模板
+                    path = os.getcwd() + "/template/" + words[1][1:-1]
+                    with open(path, "rb") as fin:
+                        base_tokens = re.split(r"(?s)({{.*?}}|{%.*?%}|{#.*?#})", fin.read().decode("utf8"))
+                except IOError:  # 不能打开基础模板
+                    raise self._syntax_error("Don't open the base model", tokens[0])
+
+                # start_index: 是记录block开始的位置
+                # start_collection: 是块开始的标志
+                start_index = 0
+                start_collection = False
+                for i, base_token in enumerate(base_tokens):  # 处理基础模板
+                    if base_token.startswith("{%"):
+                        words = base_token[2:-2].strip().split()
+                        if words[0] == "block":
+                            if len(words) != 2 or base_name != '':
+                                raise self._syntax_error("Don't understand block", base_token)
+                            base_name = words[1]
+                            start_index = i
+
+                        elif words[0] == "endblock":
+                            if len(words) != 1 or base_name == '':
+                                raise self._syntax_error("Don't understand endblock", base_token)
+                            base_block[base_name] = start_index, i
+                            base_name = ''
+
+                # end_index: 是基础当前块的结尾位置
+                end_index = 0
+                for kid_token in tokens[2:]:  # 处理子模板
+                    if kid_token.startswith("{%"):
+                        words = kid_token[2:-2].strip().split()
+
+                        if words[0] == "block":
+                            if len(words) != 2 or start_collection:
+                                raise self._syntax_error("Don't understand block", kid_token)
+                            try:
+                                start_index, _i = base_block[words[1]]
+                            except KeyError:
+                                raise self._syntax_error("Don't find block", kid_token)
+                            merge_page.extend(base_tokens[end_index:start_index])
+                            end_index = _i + 1
+                            start_collection = True
+                            continue
+
+                        elif words[0] == "endblock":
+                            if len(words) != 1 or not start_collection:
+                                raise self._syntax_error("Don't understand endblock", kid_token)
+                            start_collection = False
+                            continue
+
+                    # 处理super()方法
+                    if kid_token.startswith("{{"):
+                        word = kid_token[2:-2].strip()
+                        if word == "super()":
+                            if not start_collection:
+                                raise self._syntax_error("Error super()", kid_token)
+                            merge_page.extend(base_tokens[start_index:end_index - 1])
+                            continue
+
+                    elif start_collection:
+                        merge_page.append(kid_token)
+                    elif kid_token.strip():
+                        raise self._syntax_error("The model codes aren't in block", kid_token)
+
+                merge_page.extend(base_tokens[end_index:])
+                tokens = merge_page
+
         for token in tokens:
             if token.startswith('{#'):
                 # 注释: 忽略注释符中的内容
@@ -132,9 +211,7 @@ class Templite(object):
                     # 扩展if语句
                     _content = []
                     for word in words[1:]:
-                        if re.match(
-                                r"[_a-zA-Z][_a-zA-Z0-9]*(\.[_a-zA-Z][_a-zA-Z0-9]*)*$",
-                                word):
+                        if re.match(r"[_a-zA-Z][_a-zA-Z0-9]*(\.[_a-zA-Z][_a-zA-Z0-9]*)*$", word):
                             _content.append(self._expr_code(word))
                             continue
                         _content.append(word)
@@ -143,24 +220,89 @@ class Templite(object):
                     code.indent()
                 elif words[0] == 'for':
                     # for循环, 以endfor结尾
-                    if len(words) != 4 or words[2] != 'in':
+                    if 6 < len(words) or len(words) < 4 or words[-2] != 'in':
                         self._syntax_error("Don't understand for", token)
                     ops_stack.append('for')
-                    self._variable(words[1], self.loop_vars)
-                    code.add_line("for c_%s in %s:" %
-                                  (words[1], self._expr_code(words[3])))
+
+                    if len(words) == 4:
+                        self._variable(words[1], self.loop_vars)
+                        code.add_line(
+                            "for c_%s in %s:" % (
+                                words[1],
+                                self._expr_code(words[3])
+                            )
+                        )
+                    elif len(words) == 5:
+                        self._variable(words[1].replace(",", ""), self.loop_vars)
+                        self._variable(words[2].replace(",", ""), self.loop_vars)
+                        code.add_line(
+                            "for c_%s , c_%s in %s:" % (
+                                words[1].replace(",", ""),
+                                words[2].replace(",", ""),
+                                self._expr_code(words[4])
+                            )
+                        )
+                    elif len(words) == 6:
+                        self._variable(words[1], self.loop_vars)
+                        self._variable(words[3], self.loop_vars)
+                        code.add_line(
+                            "for c_%s , c_%s in %s:" % (
+                                words[1],
+                                words[2],
+                                self._expr_code(words[4])
+                            )
+                        )
+
                     code.indent()
                 elif words[0].startswith('end'):
                     # 结束符, 用来结束逻辑语句
                     if len(words) != 1:
                         self._syntax_error("Don't understand end", token)
                     end_what = words[0][3:]
+
+                    if end_what == "block":
+                        continue
+
                     if not ops_stack:
                         self._syntax_error("Too many ends", token)
-                    start_what = ops_stack.pop()
+
+                    while 1:  # 处理else或elif
+                        start_what = ops_stack.pop()
+                        if start_what == "else" or start_what == "elif":
+                            continue
+                        break
+
                     if start_what != end_what:
                         self._syntax_error("Mismatched end tag", end_what)
                     code.dedent()
+
+                elif words[0] == "else":
+                    # else 语句
+                    if len(words) != 1 or (ops_stack[-1] != "if" and ops_stack[-1] != "elif"):
+                        self._syntax_error("Don't understand else", token)
+                    ops_stack.append('else')
+                    code.dedent()
+                    code.add_line("else:")
+                    code.indent()
+
+                elif words[0] == "elif":
+                    # elif 语句
+                    if ops_stack[-1] != "if" and ops_stack[-1] != "elif":
+                        self._syntax_error("Don't understand elif", token)
+                    ops_stack.append('elif')
+                    code.dedent()
+                    _content = []
+                    for word in words[1:]:
+                        if re.match(r"[_a-zA-Z][_a-zA-Z0-9]*(\.[_a-zA-Z][_a-zA-Z0-9]*)*$", word):
+                            _content.append(self._expr_code(word))
+                            continue
+                        _content.append(word)
+
+                    code.add_line("elif %s:" % ' '.join(_content))
+                    code.indent()
+
+                elif words[0] == "block" or words[0] == "extends":
+                    continue
                 else:
                     self._syntax_error("Don't understand tag", words[0])
             else:
